@@ -1,0 +1,13 @@
+#ifndef CONSTS_H
+#define CONSTS_H
+
+#define MAX_LINE_SIZE 2000 // change it later TODO
+
+#define STATUS_OK 0
+#define STATUS_READING_ERROR 1
+#define STATUS_MATRIX_INVALID 2
+#define STATUS_NON_SQUARE_PROCESSES 3
+#define STATUS_WRONG_INPUTS 4
+#define STATUS_ALLOCATION_FAILED 5
+
+#endif
