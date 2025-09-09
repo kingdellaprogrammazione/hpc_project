@@ -17,6 +17,8 @@ module load gcc openmpi
 echo "Loaded modules are:"
 module list # This will show us what is loaded
 
+source /home/hpc_2025_group_04/s343236/virtual_python_environment/bin/activate
+
 make gen 
 make mpi_mm.out
 
