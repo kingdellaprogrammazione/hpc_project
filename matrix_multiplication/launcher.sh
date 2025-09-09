@@ -28,7 +28,7 @@ echo "SLURM_NTASKS allocated: $SLURM_NTASKS"
 echo "Running the MPI executable..."
 
 # Use the variables to ensure we run the correct file with the correct number of tasks
-mpirun -np $SLURM_NTASKS ./mpi_mm.out
+mpirun -np $SLURM_NTASKS ./build/mpi_mm.out
 #srun ./$EXEC_NAME
 
 echo "JOB FINISHED"
