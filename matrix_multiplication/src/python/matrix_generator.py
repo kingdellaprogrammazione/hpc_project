@@ -13,6 +13,8 @@ if (len(sys.argv) == 1):
 else:
     side_dimension = sys.argv[1]
 
+side_dimension = int(side_dimension)
+
 script_dir = Path(__file__).resolve().parent 
 mm_folder = script_dir.parent.parent
 data_path = mm_folder / 'data' / 'sample_input_matrices'
