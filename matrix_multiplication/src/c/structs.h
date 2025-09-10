@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include "mpi.h"
 
 #ifndef STRUCTS_H
 #define STRUCTS_H
@@ -21,13 +22,12 @@ typedef struct
     int processor_grid_side;
     int matrix_side;
 
-    // Matrix pointers
-    float *matrix_A_read;
-    float *matrix_B_read;
-    float *matrix_C_read;
+    int cart_rank;
+    int cart_size;
+    int full_rank;
+    int full_size;
 
-    Block **block_matrix_A;
-    Block **block_matrix_B;
+    int cartesian_coords[2];
 
     // Communication topology
     int sendto_vertical;
@@ -60,8 +60,15 @@ typedef struct
     int status;
 
     FILE *log_file;
+
+    MPI_Comm full_group_comm;
+    MPI_Comm worker_comm;
+    MPI_Comm cart_comm;
+
 } MPIContext;
 
 void set_MPIContext(MPIContext *ctx);
+void open_logfiles(MPIContext *ctx);
+void log_MPIContext(MPIContext *ctx);
 
 #endif

@@ -8,55 +8,6 @@
 
 #define MATRIX_INVALID_DIMENSIONS 0
 
-int get_csv_matrix_dimension(FILE *file) // return matrix dimensions if valid
-{
-    char *line = NULL; // Line buffer (will be allocated by getline)
-    size_t len = 0;    // Size of the buffer (getline sets it)
-
-    int counter_lines_A = 0;
-    int counter_columns_A = -1;
-
-    while (getline(&line, &len, file) != -1)
-    {
-        // let's check here that the matrices have all the same dimensions
-        line[strcspn(line, "\r\n")] = 0;
-
-        int new_counter_cols = 0;
-
-        char *token;
-        token = strtok(line, ",");
-        while (token != NULL)
-        {
-            token = strtok(NULL, ",");
-            new_counter_cols++;
-        }
-
-        if (counter_columns_A != -1)
-        {
-            if (counter_columns_A != new_counter_cols)
-            {
-                rewind(file); // Good practice to reset the file state before returning.
-                free(line);
-                return MATRIX_INVALID_DIMENSIONS;
-            }
-        }
-        counter_columns_A = new_counter_cols;
-        counter_lines_A++;
-        // perform the check
-    }
-
-    if (!(counter_columns_A == counter_lines_A))
-    {
-        rewind(file); // Good practice to reset the file state before returning.
-        free(line);
-        return MATRIX_INVALID_DIMENSIONS;
-    }
-
-    rewind(file);
-    free(line);
-    return counter_columns_A;
-}
-
 int check_square(int squared)
 {
     int square_root = (int)round(sqrt((double)squared));
@@ -458,28 +409,5 @@ void from_blocks_to_matrix(float *matrix, float **target, int *matrix_block_stru
         }
 
         *target = new_matrix;
-    }
-}
-
-void produce_csv(FILE **matrix_file_output, char *filename, float *matrix_final, int matrix_side)
-{
-
-    if ((*matrix_file_output = fopen(filename, "w")) == NULL)
-    {
-        printf("Error while opening csv files.\n");
-    }
-
-    for (int row = 0; row < matrix_side; row++)
-    {
-        for (int col = 0; col < matrix_side; col++)
-        {
-
-            fprintf(*matrix_file_output, "%f", matrix_final[row * matrix_side + col]);
-            if (col != matrix_side - 1)
-            {
-                fprintf(*matrix_file_output, ",");
-            }
-        }
-        fprintf(*matrix_file_output, "\n");
     }
 }
