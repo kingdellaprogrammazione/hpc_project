@@ -8,6 +8,12 @@
 \usepackage{xcolor}
 \usepackage{lipsum}
 
+\IfFileExists{private.tex}{\input{private.tex}}{
+  \newcommand{\pollo}{redacted@email.com \\ s000000}
+  \newcommand{\edo}{redacted@email.com \\ s000000}
+  \newcommand{\michi}{redacted@email.com \\ s000000}
+}
+
 \def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
     T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
 \begin{document}
@@ -17,17 +23,17 @@
 \author{\IEEEauthorblockN{P A}
 \IEEEauthorblockA{
 \textit{Politecnico di Torino}\\
-redacted@email.com}
+\pollo}
 \and
 \IEEEauthorblockN{E F}
 \IEEEauthorblockA{
 \textit{Politecnico di Torino}\\
-redacted@email.com}
+\edo}
 \and
 \IEEEauthorblockN{M P}
 \IEEEauthorblockA{
 \textit{Politecnico di Torino}\\
-redacted@email.com}
+\michi}
 }
 
 \maketitle
