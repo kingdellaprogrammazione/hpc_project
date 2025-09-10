@@ -1,4 +1,5 @@
 #include "structs.h"
+#include "consts.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -49,4 +50,53 @@ void block_destroy(Block *block_to_destroy)
         free(block_to_destroy->ptr_to_block_contents); // Free the internal data first
         free(block_to_destroy);                        // Then free the struct itself
     }
+}
+
+void set_MPIContext(MPIContext *ctx)
+{
+    ctx->world_rank = 0;
+    ctx->world_size = 0;
+    ctx->processor_grid_side = 0;
+    ctx->matrix_side = 0;
+
+    // Communication topology
+    ctx->sendto_vertical = -1;
+    ctx->sendto_horizontal = -1;
+    ctx->receivefrom_vertical = -1;
+    ctx->receivefrom_horizontal = -1;
+
+    ctx->local_block_rows = 0;
+    ctx->local_block_cols = 0;
+
+    ctx->coming_block_dims_vertical[0] = 0;
+    ctx->coming_block_dims_vertical[1] = 0;
+
+    ctx->going_block_dims_horizontal[0] = 0;
+    ctx->going_block_dims_horizontal[1] = 0;
+
+    ctx->status = STATUS_OK;
+
+    // Other
+    ctx->matrix_block_structure = NULL;
+
+    // Matrix pointers
+    ctx->matrix_A_read = NULL;
+    ctx->matrix_B_read = NULL;
+    ctx->matrix_C_read = NULL;
+
+    ctx->block_matrix_A = NULL;
+    ctx->block_matrix_B = NULL;
+
+    // Block data
+    ctx->coming_block_vertical = NULL;
+    ctx->going_block_horizontal = NULL;
+    ctx->going_block_vertical = NULL;
+    ctx->coming_block_horizontal = NULL;
+    ctx->multi_result = NULL;
+    ctx->local_block = NULL;
+
+    snprintf(ctx->log_process_filepath, sizeof(ctx->log_process_filepath), "./data/logs/log_process_");
+    snprintf(ctx->extension, sizeof(ctx->extension), ".txt");
+
+    ctx->log_file = NULL;
 }
