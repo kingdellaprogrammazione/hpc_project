@@ -26,7 +26,7 @@ int main(int argc, char **argv)
     MPI_Comm_size(MPI_COMM_WORLD, &(local_setup.world_size));
     MPI_Comm_rank(MPI_COMM_WORLD, &(local_setup.world_rank));
 
-    printonrank("Successfully started.\n", 0, MPI_COMM_WORLD);
+    printonrank("\n \nSuccessfully started.\n", 0, MPI_COMM_WORLD);
 
     // evaluate processor grid side
     if (local_setup.world_rank == 0)
@@ -104,154 +104,23 @@ int main(int argc, char **argv)
     MPI_Barrier(MPI_COMM_WORLD);
     printonrank("Finished local_setup. Now the systolic phase starts.\n", 0, local_setup.full_group_comm);
 
-    if (local_setup.full_group_comm != MPI_COMM_NULL)
-    {
-        main_loop(&local_setup, rank_lookup_table_cartesian, block_matrix_A, block_matrix_B);
-    }
-
-    MPI_Barrier(MPI_COMM_WORLD);
-    if (local_setup.cart_comm != MPI_COMM_NULL)
-    {
-        fprintf(local_setup.log_file, "rank in cart %d \n", local_setup.cart_rank);
-        show_matrix(local_setup.local_block, local_setup.local_block_rows, local_setup.local_block_cols);
-    }
-    // Resend all the pieces to the root process
-
-    // Receive Dims and reconstruct matrix
-
-    if (local_setup.full_group_comm != MPI_COMM_NULL)
-    {
-
-        int local_dims[2] = {0, 0};
-        if (local_setup.worker_comm != MPI_COMM_NULL)
-        {
-            local_dims[0] = local_setup.local_block_rows;
-            local_dims[1] = local_setup.local_block_cols;
-        }
-
-        int *full_dims = {0};
-
-        if (local_setup.full_rank == 0)
-        {
-            fprintf(local_setup.log_file, "Matrix side %d\n", local_setup.matrix_side);
-            matrix_C_read = (float *)malloc(local_setup.matrix_side * local_setup.matrix_side * sizeof(float));
-            full_dims = (int *)malloc(2 * local_setup.full_size * sizeof(int));
-        }
-
-        MPI_Gather(local_dims, 2, MPI_INT, full_dims, 2, MPI_INT, 0, local_setup.full_group_comm);
-
-        if (local_setup.full_rank == 0)
-        {
-            for (int i = 0; i < local_setup.full_size; i++)
-            {
-                // printf("Dims sent from process %d: %d rows %d cols\n", i, full_dims[2 * i], full_dims[2 * i + 1]);
-            }
-        }
-
-        int *sending_dimension = NULL;
-
-        int *displacements = NULL;
-
-        if (local_setup.full_rank == 0)
-        {
-            sending_dimension = (int *)malloc(local_setup.full_size * sizeof(int));
-            displacements = (int *)malloc(local_setup.full_size * sizeof(int));
-
-            displacements[0] = 0;
-            sending_dimension[0] = 0;
-
-            for (int i = 0; i < local_setup.processor_grid_side * local_setup.processor_grid_side; i++)
-            {
-                sending_dimension[i + 1] = full_dims[2 * i + 2] * full_dims[2 * i + 3];
-            }
-
-            for (int i = 0; i < local_setup.processor_grid_side * local_setup.processor_grid_side; i++)
-            {
-
-                displacements[i + 1] = displacements[i] + sending_dimension[i];
-            }
-
-            for (int i = 0; i < local_setup.processor_grid_side * local_setup.processor_grid_side + 1; i++)
-            {
-                printf("     %d     \n", sending_dimension[i]);
-            }
-
-            for (int i = 0; i < local_setup.processor_grid_side * local_setup.processor_grid_side + 1; i++)
-            {
-
-                printf("     %d     \n", displacements[i]);
-            }
-        }
-
-        MPI_Barrier(local_setup.full_group_comm);
-
-        MPI_Gatherv(local_setup.local_block, local_setup.local_block_cols * local_setup.local_block_rows, MPI_FLOAT, matrix_C_read, sending_dimension, displacements, MPI_FLOAT, 0, local_setup.full_group_comm);
-
-        MPI_Barrier(local_setup.full_group_comm);
-
-        for (int i = 0; i < local_setup.local_block_cols * local_setup.local_block_rows; i++)
-        {
-            fprintf(local_setup.log_file, "LOCAL BLOCK: from %d position %d:  %f\n", local_setup.full_rank, i, local_setup.local_block[i]);
-        }
-
-        MPI_Barrier(local_setup.full_group_comm);
-
-        if (local_setup.full_rank == 0)
-        {
-            for (int i = 0; i < local_setup.matrix_side * local_setup.matrix_side; i++)
-            {
-                fprintf(local_setup.log_file, "MATRIX position %d %f \n", i, matrix_C_read[i]);
-            }
-        }
-    }
-
     float *final_matrix = NULL;
 
     if (local_setup.full_group_comm != MPI_COMM_NULL)
     {
-        if (local_setup.full_rank == 0)
-        {
-            final_matrix = (float *)malloc(local_setup.matrix_side * local_setup.matrix_side * sizeof(float)); // result of the multiplications
-            // function REORDER THE MATRIX
-            from_blocks_to_matrix(matrix_C_read, &final_matrix, local_setup.matrix_block_structure, local_setup.processor_grid_side, local_setup.matrix_side);
+        main_loop(&local_setup, rank_lookup_table_cartesian, block_matrix_A, block_matrix_B);
+        MPI_Barrier(local_setup.full_group_comm);
+        printonrank("Systolic phase has ended succesfully.\n", 0, local_setup.full_group_comm);
 
-            // produce the output csv file
-
-            FILE *file_to_write = NULL;
-            produce_csv(&file_to_write, "./data/sample_input_matrices/matrix_c.csv", final_matrix, local_setup.matrix_side);
-            fprintf(local_setup.log_file, "ziopersdsij");
-        }
+        collect_and_merge(&local_setup, matrix_C_read, final_matrix);
+        MPI_Barrier(local_setup.full_group_comm);
+        printonrank("Construction of final matrix has been completed.\n", 0, local_setup.full_group_comm);
     }
     // End section, freeing
 
-    if (local_setup.cart_comm != MPI_COMM_NULL)
-    {
-        MPI_Comm_free(&local_setup.cart_comm);
-    }
-    if (local_setup.worker_comm != MPI_COMM_NULL)
-    {
-        MPI_Comm_free(&local_setup.worker_comm);
-    } // it needs to be put here since the process that got managers_and_workers equal to MPI_UNDEFINED didn't get their communicator initialized
-    if (local_setup.full_group_comm != MPI_COMM_NULL)
-    {
-        MPI_Comm_free(&local_setup.full_group_comm);
-    }
-
-    // free matrix of blocks
-    if (block_matrix_A != NULL)
-    {
-        destroy_matrix_of_blocks(block_matrix_A, local_setup.processor_grid_side);
-    }
-    if (block_matrix_B != NULL)
-    {
-        destroy_matrix_of_blocks(block_matrix_B, local_setup.processor_grid_side);
-    }
-
-    // free pointers
-    if (local_setup.matrix_block_structure != NULL)
-    {
-        free(local_setup.matrix_block_structure);
-    }
+    free_all(&local_setup, block_matrix_A, block_matrix_B);
+    MPI_Barrier(MPI_COMM_WORLD);
+    printonrank("Freeing/closing completed.\n", 0, MPI_COMM_WORLD);
 
     MPI_Finalize();
     return 0;

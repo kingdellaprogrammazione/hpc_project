@@ -267,9 +267,6 @@ void send_dimensions_matrix_top(MPIContext *ctx, int *rank_lookup_table, Block *
 
 void receive_exchange_dims_grid(MPIContext *ctx, int clock)
 {
-
-    int block_total_elements = ctx->local_block_rows * ctx->local_block_cols; // local
-
     if ((ctx->cartesian_coords)[1] == 0 && (ctx->cartesian_coords)[0] == 0) // on the corner
     {
 
@@ -304,13 +301,13 @@ void receive_exchange_dims_grid(MPIContext *ctx, int clock)
         ctx->going_block_dims_vertical, 2, MPI_INT, ctx->sendto_vertical, 0,       // Send my data to the right
         ctx->coming_block_dims_vertical, 2, MPI_INT, ctx->receivefrom_vertical, 0, // Receive new data from the left
         ctx->cart_comm, MPI_STATUS_IGNORE);
-    fprintf(ctx->log_file, "Clock %d, Process %d WORKER cart_rank %d send vertical DIMS %d %d to proc full_rank %d and receive from%d\n", clock, ctx->full_rank, ctx->cart_rank, ctx->sendto_vertical, ctx->receivefrom_vertical);
+    fprintf(ctx->log_file, "Clock %d, Process %d WORKER cart_rank %d send vertical DIMS to proc full_rank %d and receive from%d\n", clock, ctx->full_rank, ctx->cart_rank, ctx->sendto_vertical, ctx->receivefrom_vertical);
 
     MPI_Sendrecv(
         ctx->going_block_dims_horizontal, 2, MPI_INT, ctx->sendto_horizontal, 0,       // Send my data to the right
         ctx->coming_block_dims_horizontal, 2, MPI_INT, ctx->receivefrom_horizontal, 0, // Receive new data from the left
         ctx->cart_comm, MPI_STATUS_IGNORE);
-    fprintf(ctx->log_file, "Clock %d,Process %d WORKER cart_rank %d send horizontal DIMS %d %d to proc%d and receive from%d\n", clock, ctx->full_rank, ctx->cart_rank, ctx->sendto_horizontal, ctx->receivefrom_horizontal);
+    fprintf(ctx->log_file, "Clock %d,Process %d WORKER cart_rank %d send horizontal DIMS to proc%d and receive from%d\n", clock, ctx->full_rank, ctx->cart_rank, ctx->sendto_horizontal, ctx->receivefrom_horizontal);
 }
 
 void send_blocks_matrix_left(MPIContext *ctx, int *rank_lookup_table, Block **block_matrix, int start_index, int end_index, int clock)
@@ -443,13 +440,13 @@ void run_local_calculation(MPIContext *ctx, int clock)
     if (ctx->cart_rank == 0)
     {
         fprintf(ctx->log_file, "Clock %d +-+-+-+--+ \n", clock);
-        show_matrix(ctx->coming_block_horizontal, ctx->coming_block_dims_horizontal[0], ctx->coming_block_dims_horizontal[1]);
+        // show_matrix(ctx->coming_block_horizontal, ctx->coming_block_dims_horizontal[0], ctx->coming_block_dims_horizontal[1]);
         fprintf(ctx->log_file, "Clock %d \n", rand());
 
-        show_matrix(ctx->coming_block_vertical, ctx->coming_block_dims_vertical[0], ctx->coming_block_dims_vertical[1]);
+        // show_matrix(ctx->coming_block_vertical, ctx->coming_block_dims_vertical[0], ctx->coming_block_dims_vertical[1]);
         fprintf(ctx->log_file, "Clock %d \n", rand());
 
-        show_matrix(ctx->multi_result, ctx->coming_block_dims_horizontal[0], ctx->coming_block_dims_vertical[1]);
+        // show_matrix(ctx->multi_result, ctx->coming_block_dims_horizontal[0], ctx->coming_block_dims_vertical[1]);
     }
     // test
     float *temp = NULL;
@@ -460,7 +457,7 @@ void run_local_calculation(MPIContext *ctx, int clock)
     if (ctx->cart_rank == 0)
     {
         fprintf(ctx->log_file, "--------------------------\n");
-        show_matrix(ctx->local_block, ctx->local_block_rows, ctx->local_block_cols);
+        // show_matrix(ctx->local_block, ctx->local_block_rows, ctx->local_block_cols);
         fprintf(ctx->log_file, "--------------------------\n");
     }
 }
@@ -525,8 +522,6 @@ void main_loop(MPIContext *ctx, int *rank_lookup_table, Block **block_matrix_A, 
                 end_index = ctx->processor_grid_side; // escluso
             }
 
-            int null_dims[2] = {0, 0};
-
             fprintf(ctx->log_file, "Clock %d, Indexes edges %d %d.\n", clock, start_index, end_index);
 
             // send on the left side matrix A
@@ -573,13 +568,15 @@ void main_loop(MPIContext *ctx, int *rank_lookup_table, Block **block_matrix_A, 
 
             MPI_Barrier(ctx->cart_comm);
 
-            if (ctx->coming_block_dims_horizontal != NULL && ctx->coming_block_dims_horizontal != NULL) // the zeros arrive simultaneously
+            if (ctx->coming_block_dims_horizontal != NULL && ctx->coming_block_dims_vertical != NULL) // the zeros arrive simultaneously TODO put they must be different from 0
             {
                 run_local_calculation(ctx, clock);
             }
             // create zero blocks per sicurezza
 
             prepare_next_clock(ctx);
+
+            // TODO check leaks and solve wanings
         }
 
         // /// debuggggg
@@ -598,4 +595,155 @@ void main_loop(MPIContext *ctx, int *rank_lookup_table, Block **block_matrix_A, 
     fprintf(ctx->log_file, "Ziopers\n");
     // CALCULATE
     MPI_Barrier(ctx->full_group_comm);
+}
+
+void collect_and_merge(MPIContext *ctx, float *matrix_write, float *final_matrix)
+{
+
+    int local_dims[2] = {0, 0};
+    if (ctx->worker_comm != MPI_COMM_NULL)
+    {
+        local_dims[0] = ctx->local_block_rows;
+        local_dims[1] = ctx->local_block_cols;
+    }
+
+    int *full_dims = {0};
+
+    if (ctx->full_rank == 0)
+    {
+        fprintf(ctx->log_file, "Matrix side %d\n", ctx->matrix_side);
+        matrix_write = (float *)malloc(ctx->matrix_side * ctx->matrix_side * sizeof(float));
+        full_dims = (int *)malloc(2 * ctx->full_size * sizeof(int));
+    }
+
+    MPI_Gather(local_dims, 2, MPI_INT, full_dims, 2, MPI_INT, 0, ctx->full_group_comm);
+
+    if (ctx->full_rank == 0)
+    {
+        for (int i = 0; i < ctx->full_size; i++)
+        {
+            // printf("Dims sent from process %d: %d rows %d cols\n", i, full_dims[2 * i], full_dims[2 * i + 1]);
+        }
+    }
+
+    int *sending_dimension = NULL;
+
+    int *displacements = NULL;
+
+    if (ctx->full_rank == 0)
+    {
+        sending_dimension = (int *)malloc(ctx->full_size * sizeof(int));
+        displacements = (int *)malloc(ctx->full_size * sizeof(int));
+
+        displacements[0] = 0;
+        sending_dimension[0] = 0;
+
+        for (int i = 0; i < ctx->processor_grid_side * ctx->processor_grid_side; i++)
+        {
+            sending_dimension[i + 1] = full_dims[2 * i + 2] * full_dims[2 * i + 3];
+        }
+
+        for (int i = 0; i < ctx->processor_grid_side * ctx->processor_grid_side; i++)
+        {
+
+            displacements[i + 1] = displacements[i] + sending_dimension[i];
+        }
+        fprintf(ctx->log_file, "Building dimensions array for gatherv: dimensions ");
+        for (int i = 0; i < ctx->processor_grid_side * ctx->processor_grid_side + 1; i++)
+        {
+            fprintf(ctx->log_file, "%d ", sending_dimension[i]);
+        }
+        fprintf(ctx->log_file, "\n");
+
+        fprintf(ctx->log_file, "Building displacements array for gatherv: dimensions ");
+        for (int i = 0; i < ctx->processor_grid_side * ctx->processor_grid_side + 1; i++)
+        {
+            fprintf(ctx->log_file, "%d ", displacements[i]);
+        }
+        fprintf(ctx->log_file, "\n");
+    }
+
+    MPI_Barrier(ctx->full_group_comm);
+
+    MPI_Gatherv(ctx->local_block, ctx->local_block_cols * ctx->local_block_rows, MPI_FLOAT, matrix_write, sending_dimension, displacements, MPI_FLOAT, 0, ctx->full_group_comm);
+
+    MPI_Barrier(ctx->full_group_comm);
+
+    for (int i = 0; i < ctx->local_block_cols * ctx->local_block_rows; i++)
+    {
+        fprintf(ctx->log_file, "LOCAL BLOCK: from %d position %d:  %f\n", ctx->full_rank, i, ctx->local_block[i]);
+    }
+
+    MPI_Barrier(ctx->full_group_comm);
+
+    if (ctx->full_rank == 0)
+    {
+        for (int i = 0; i < ctx->matrix_side * ctx->matrix_side; i++)
+        {
+            fprintf(ctx->log_file, "MATRIX position %d %f \n", i, matrix_write[i]);
+        }
+    }
+
+    if (ctx->full_rank == 0)
+    {
+        final_matrix = (float *)malloc(ctx->matrix_side * ctx->matrix_side * sizeof(float)); // result of the multiplications
+        // function REORDER THE MATRIX
+        from_blocks_to_matrix(matrix_write, &final_matrix, ctx->matrix_block_structure, ctx->processor_grid_side, ctx->matrix_side);
+
+        // produce the output csv file
+
+        FILE *file_to_write = NULL;
+        produce_csv(&file_to_write, "./data/sample_input_matrices/matrix_c.csv", final_matrix, ctx->matrix_side);
+        fprintf(ctx->log_file, "ziopersdsij");
+    }
+}
+
+void free_communicators(MPIContext *ctx)
+{
+    if (ctx->cart_comm != MPI_COMM_NULL)
+    {
+        MPI_Comm_free(&ctx->cart_comm);
+    }
+    if (ctx->worker_comm != MPI_COMM_NULL)
+    {
+        MPI_Comm_free(&ctx->worker_comm);
+    } // it needs to be put here since the process that got managers_and_workers equal to MPI_UNDEFINED didn't get their communicator initialized
+    if (ctx->full_group_comm != MPI_COMM_NULL)
+    {
+        MPI_Comm_free(&ctx->full_group_comm);
+    }
+}
+
+void close_logfiles(MPIContext *ctx)
+{
+    if (ctx->log_file != NULL)
+    {
+        fclose(ctx->log_file);
+    }
+}
+
+void free_localpointers(MPIContext *ctx, Block **block_matrix_A, Block **block_matrix_B)
+{
+    // free matrix of blocks
+    if (block_matrix_A != NULL)
+    {
+        destroy_matrix_of_blocks(block_matrix_A, ctx->processor_grid_side);
+    }
+    if (block_matrix_B != NULL)
+    {
+        destroy_matrix_of_blocks(block_matrix_B, ctx->processor_grid_side);
+    }
+
+    // free pointers
+    if (ctx->matrix_block_structure != NULL)
+    {
+        free(ctx->matrix_block_structure);
+    }
+}
+
+void free_all(MPIContext *ctx, Block **block_matrix_A, Block **block_matrix_B)
+{
+    free_communicators(ctx);
+    free_localpointers(ctx, block_matrix_A, block_matrix_B);
+    close_logfiles(ctx);
 }

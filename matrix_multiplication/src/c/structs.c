@@ -1,5 +1,6 @@
 #include "structs.h"
 #include "consts.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -111,12 +112,6 @@ void set_MPIContext(MPIContext *ctx)
     ctx->log_file = NULL;
 }
 
-#include <stdio.h>
-#include <mpi.h>
-
-// Add STATUS_OK or your own status enum if needed
-// #define STATUS_OK 0
-
 void log_MPIContext(MPIContext *ctx)
 {
     if (ctx->log_file != NULL)
@@ -192,7 +187,7 @@ void open_logfiles(MPIContext *ctx)
 
     if ((ctx->log_file = fopen(ctx->log_process_filepath, "w")) == NULL)
     {
-        printf("error in opening log files\n");
+        fprintf(stderr, "error in opening log files\n");
         MPI_Abort(MPI_COMM_WORLD, 1);
     }
     setvbuf(ctx->log_file, NULL, _IONBF, 0); // Disable buffering completely DANGEROUS+ SLOW DOWN THE THING

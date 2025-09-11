@@ -357,7 +357,7 @@ void from_blocks_to_matrix(float *matrix, float **target, int *matrix_block_stru
     for (int i = 1; i < grid_processor_side; i++)
     {
         cumulated_block_structure[i] = matrix_block_structure[i - 1] + cumulated_block_structure[i - 1];
-        printf("cum_block_struct %d\n", cumulated_block_structure[i]);
+        // printf("cum_block_struct %d\n", cumulated_block_structure[i]);
     }
 
     // devo sfalsare i blocchi che sono contigui con in mezzo offset di lunghezza pari al resto della linea libero
@@ -389,7 +389,7 @@ void from_blocks_to_matrix(float *matrix, float **target, int *matrix_block_stru
             }
 
             int position_inside_block_col = col - cumulated_block_structure[block_cols];
-            printf("ROW %d, COL %d, block_row  %d and block_col %d position block row %d, position block col %d \n", row, col, block_rows, block_cols, position_inside_block_row, position_inside_block_col);
+            // printf("ROW %d, COL %d, block_row  %d and block_col %d position block row %d, position block col %d \n", row, col, block_rows, block_cols, position_inside_block_row, position_inside_block_col);
 
             // now access the old matrix
 
@@ -404,7 +404,7 @@ void from_blocks_to_matrix(float *matrix, float **target, int *matrix_block_stru
             }
 
             int end_position_in_old_matrix = start_position_in_old_matrix + position_inside_block_row * matrix_block_structure[block_cols] + position_inside_block_col;
-            printf("Block number %d , start_position_in_old_matrix %d end position in old matrix %d\n", block_number, start_position_in_old_matrix, end_position_in_old_matrix);
+            // printf("Block number %d , start_position_in_old_matrix %d end position in old matrix %d\n", block_number, start_position_in_old_matrix, end_position_in_old_matrix);
             new_matrix[row * matrix_side + col] = (float)matrix[end_position_in_old_matrix];
         }
 
