@@ -4,17 +4,20 @@
 #ifndef STRUCTS_H
 #define STRUCTS_H
 
+// Host matrices with dimensions
 typedef struct
 {
     float *ptr_to_block_contents;
     int dims[2];
 } Block;
 
+// Creates a Block
 Block *block_create(int num_rows, int num_cols, float *values);
+
+// Destroys a Block
 void block_destroy(Block *block_to_destroy);
 
-// struct for holding the indexes
-
+// Holds the local variables (for each processor)
 typedef struct
 {
     int world_rank;
@@ -67,8 +70,10 @@ typedef struct
 
 } MPIContext;
 
+// Zero-initializes all the local fields
 void set_MPIContext(MPIContext *ctx);
-void open_logfiles(MPIContext *ctx);
+
+// Print to log files all the local field for inspection
 void log_MPIContext(MPIContext *ctx);
 
 #endif

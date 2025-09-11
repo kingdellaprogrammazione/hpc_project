@@ -176,21 +176,3 @@ void log_MPIContext(MPIContext *ctx)
         fprintf(ctx->log_file, "========================\n");
     }
 }
-
-void open_logfiles(MPIContext *ctx)
-{ // to call after one has defined full_rank
-
-    char number[5];
-    snprintf(number, sizeof(number), "%d", ctx->full_rank);
-    strcat(ctx->log_process_filepath, number);
-    strcat(ctx->log_process_filepath, ctx->extension);
-
-    if ((ctx->log_file = fopen(ctx->log_process_filepath, "w")) == NULL)
-    {
-        fprintf(stderr, "error in opening log files\n");
-        MPI_Abort(MPI_COMM_WORLD, 1);
-    }
-    setvbuf(ctx->log_file, NULL, _IONBF, 0); // Disable buffering completely DANGEROUS+ SLOW DOWN THE THING
-}
-
-// TODO close logfiles
