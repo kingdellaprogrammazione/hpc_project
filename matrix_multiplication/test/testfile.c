@@ -1,13 +1,15 @@
 #include "../external/unity/unity.h"
-#include "../src/c/structs.h" // Your actual structs header
+#include "../src/c/structs.h"
 #include "../src/c/mpi_functions.h"
+#include "../src/c/io.h"
+#include "../src/c/consts.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
 #include <unistd.h>
 
-#define MATRIX_INVALID_DIMENSIONS 0
 // --- setUp and tearDown ---
 
 void setUp(void)
@@ -69,7 +71,7 @@ void test_get_csv_matrix_dimension(void)
     ftruncate(fileno(fp), 0);
     fprintf(fp, "1,2,3\n4,5\n");
     rewind(fp);
-    TEST_ASSERT_EQUAL_INT(MATRIX_INVALID_DIMENSIONS, get_csv_matrix_dimension(fp));
+    TEST_ASSERT_EQUAL_INT(STATUS_MATRIX_INVALID, get_csv_matrix_dimension(fp));
 
     fclose(fp);
 }
