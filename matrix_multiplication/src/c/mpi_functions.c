@@ -319,6 +319,7 @@ int matrix_multi(float *matrix_A, float *matrix_B, float *matrix_C, int num_rows
                 result = result + matrix_A[row_c * common + counter] * matrix_B[counter * num_cols_B + col_c]; // TODO is this right??????
             }
 
+            // result = round(result * 100.0) / 100.0;
             matrix_C[row_c * num_cols_B + col_c] = result;
         }
     }
@@ -333,7 +334,9 @@ int matrix_add(float *matrix_A, float *matrix_B, float *matrix_C, int num_rows, 
     // A simple loop over the 1D array is the most efficient way to do this
     for (int i = 0; i < total_elements; i++)
     {
-        matrix_C[i] = matrix_A[i] + matrix_B[i];
+        float result = matrix_A[i] + matrix_B[i];
+        // result = round(result * 100.0) / 100.0;
+        matrix_C[i] = result;
     }
 
     return 0;

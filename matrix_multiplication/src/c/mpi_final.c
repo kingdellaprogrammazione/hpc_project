@@ -28,11 +28,21 @@ int main(int argc, char **argv)
 
     printonrank("\n \nSuccessfully started.\n", 0, MPI_COMM_WORLD);
 
+    FILE *timings_file = NULL;
+
     // evaluate processor grid side
     if (local_setup.world_rank == 0)
     {
-        local_setup.processor_grid_side = find_int_sqroot(local_setup.world_size);
+        local_setup.processor_grid_side = find_int_sqroot(local_setup.world_size); // TODO here implement handling of 1 process grid or exact square grids (with the solution of the double
+                                                                                   // role process)
+
+        if ((timings_file = fopen("./data/timings/measurements.txt", "a")) == NULL)
+        {
+            MPI_Abort(MPI_COMM_WORLD, 450);
+            return STATUS_READING_ERROR;
+        }
     }
+    double start_time = MPI_Wtime();
 
     MPI_Bcast(&local_setup.processor_grid_side, 1, MPI_INT, 0, MPI_COMM_WORLD); // fundamental to share the info with everyone; need before the division in groups
     MPI_Barrier(MPI_COMM_WORLD);
@@ -124,6 +134,13 @@ int main(int argc, char **argv)
         printonrank("Construction of final matrix has been completed.\n", 0, local_setup.full_group_comm);
     }
     // End section, freeing
+
+    double end_time = MPI_Wtime();
+    double elapsed = end_time - start_time;
+    if (local_setup.full_rank == 0)
+    {
+        fprintf(timings_file, "processnum in full_group %d timing %f s\n", local_setup.full_size, elapsed);
+    }
 
     free_all(&local_setup, block_matrix_A, block_matrix_B);
     MPI_Barrier(MPI_COMM_WORLD);
