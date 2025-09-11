@@ -36,13 +36,12 @@ int main(int argc, char **argv)
         local_setup.processor_grid_side = find_int_sqroot(local_setup.world_size); // TODO here implement handling of 1 process grid or exact square grids (with the solution of the double
                                                                                    // role process)
 
-        if ((timings_file = fopen("./data/timings/measurements.txt", "a")) == NULL)
+        if ((timings_file = fopen("./data/timings/measurements.txt", "a")) == NULL) // TODO GIVES ERROR HERE IF FILE NOT PRESENT  (to log a lot of files add like a hash of the time of starts here)
         {
             MPI_Abort(MPI_COMM_WORLD, 450);
             return STATUS_READING_ERROR;
         }
     }
-    double start_time = MPI_Wtime();
 
     MPI_Bcast(&local_setup.processor_grid_side, 1, MPI_INT, 0, MPI_COMM_WORLD); // fundamental to share the info with everyone; need before the division in groups
     MPI_Barrier(MPI_COMM_WORLD);
@@ -123,9 +122,17 @@ int main(int argc, char **argv)
 
     float *final_matrix = NULL;
 
+    double start_time = 0;
+    double end_time = 0;
+
     if (local_setup.full_group_comm != MPI_COMM_NULL)
     {
+        double start_time = MPI_Wtime();
+
         main_loop(&local_setup, rank_lookup_table_cartesian, block_matrix_A, block_matrix_B);
+
+        double end_time = MPI_Wtime();
+
         MPI_Barrier(local_setup.full_group_comm);
         printonrank("Systolic phase has ended succesfully.\n", 0, local_setup.full_group_comm);
 
@@ -135,7 +142,6 @@ int main(int argc, char **argv)
     }
     // End section, freeing
 
-    double end_time = MPI_Wtime();
     double elapsed = end_time - start_time;
     if (local_setup.full_rank == 0)
     {
