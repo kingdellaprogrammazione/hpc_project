@@ -122,24 +122,24 @@ int main(int argc, char **argv)
 
     float *final_matrix = NULL;
 
-    double start_time = 0;
-    double end_time = 0;
+    // double start_time = 0;
+    // double end_time = 0;
 
+    double start_time = MPI_Wtime();
     if (local_setup.full_group_comm != MPI_COMM_NULL)
     {
-        double start_time = MPI_Wtime();
 
         main_loop(&local_setup, rank_lookup_table_cartesian, block_matrix_A, block_matrix_B);
 
-        double end_time = MPI_Wtime();
-
         MPI_Barrier(local_setup.full_group_comm);
+
         printonrank("Systolic phase has ended succesfully.\n", 0, local_setup.full_group_comm);
 
         collect_and_merge(&local_setup, matrix_C_read, final_matrix);
         MPI_Barrier(local_setup.full_group_comm);
         printonrank("Construction of final matrix has been completed.\n", 0, local_setup.full_group_comm);
     }
+    double end_time = MPI_Wtime();
     // End section, freeing
 
     double elapsed = end_time - start_time;
