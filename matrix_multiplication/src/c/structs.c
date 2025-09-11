@@ -195,6 +195,7 @@ void open_logfiles(MPIContext *ctx)
         printf("error in opening log files\n");
         MPI_Abort(MPI_COMM_WORLD, 1);
     }
+    setvbuf(ctx->log_file, NULL, _IONBF, 0); // Disable buffering completely DANGEROUS+ SLOW DOWN THE THING
 }
 
 // TODO close logfiles
