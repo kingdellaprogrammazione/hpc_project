@@ -50,7 +50,9 @@ int main(int argc, char **argv)
     // open logfiles
     if (local_setup.full_group_comm != MPI_COMM_NULL)
     {
-        open_logfiles(&local_setup);
+        int result = open_logfiles(&local_setup, 1);
+        // todo handle errors
+
         MPI_Barrier(local_setup.full_group_comm);
         printonrank("Logfiles opened successfully.\n", 0, local_setup.full_group_comm);
 
@@ -70,7 +72,12 @@ int main(int argc, char **argv)
     if (local_setup.full_rank == 0)
     {
         // filenames assume executable is in the build directory - assume running from the "matrix_multiplication folder"
-        obtain_full_matrices("./data/sample_input_matrices/matrix_a.csv", "./data/sample_input_matrices/matrix_b.csv", &local_setup, &block_matrix_A, &block_matrix_B);
+        int result = obtain_full_matrices("./data/sample_input_matrices/matrix_a.csv", "./data/sample_input_matrices/matrix_b.csv", &local_setup, &block_matrix_A, &block_matrix_B);
+        if (result != STATUS_OK)
+        {
+
+            // tODO
+        }
         printf("Full matrices read and decomposed\n");
     }
 

@@ -1,9 +1,11 @@
 #include "mpi.h"
 #include "structs.h"
-#include <stdlib.h>
-#include <assert.h>
 #include "mpi_functions.h"
 #include "consts.h"
+#include "io.h"
+
+#include <stdlib.h>
+#include <assert.h>
 
 void organize_processors(MPIContext *ctx)
 {
@@ -693,8 +695,13 @@ void collect_and_merge(MPIContext *ctx, float *matrix_write, float *final_matrix
         // produce the output csv file
 
         FILE *file_to_write = NULL;
-        produce_csv(&file_to_write, "./data/sample_input_matrices/matrix_c.csv", final_matrix, ctx->matrix_side);
-        fprintf(ctx->log_file, "ziopersdsij");
+
+        int result = produce_csv(&file_to_write, "./data/sample_input_matrices/matrix_c.csv", final_matrix, ctx->matrix_side);
+        if (result != STATUS_OK)
+        {
+            // An error occurred
+            fprintf(stderr, "some_function failed with error code: %d\n", result);
+        }
     }
 }
 

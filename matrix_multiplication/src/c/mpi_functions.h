@@ -7,7 +7,7 @@
 #ifndef MYFUNCTIONS_H
 #define MYFUNCTIONS_H
 
-int get_csv_matrix_dimension(FILE *file);
+// int get_csv_matrix_dimension(FILE *file);
 
 int check_square(int squared);
 
@@ -42,6 +42,6 @@ void show_matrix(float *matrix, int rows, int cols);
 
 void from_blocks_to_matrix(float *matrix, float **target, int *matrix_block_structure, int grid_processor_side, int matrix_side);
 
-void produce_csv(FILE **matrix_file_output, char *filename, float *matrix_final, int matrix_side);
+// void produce_csv(FILE **matrix_file_output, char *filename, float *matrix_final, int matrix_side);
 
 #endif
