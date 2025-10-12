@@ -1,0 +1,33 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+import glob
+import re
+
+# Find all metric files (adjust prefix if needed)
+files = glob.glob("metrics_a_*t_*.csv")
+
+data = []
+
+for f in files:
+    df = pd.read_csv(f)
+    last = df.iloc[-1]
+    match = re.search(r"metrics_a_(\d+)t_(\d+).csv", f)
+    if match:
+        threads = int(match.group(1))
+        iterations = int(match.group(2))
+        data.append((threads, iterations, last["elapsed_s"]))
+
+df_all = pd.DataFrame(data, columns=["threads", "iterations", "time"])
+
+# Plot for each iteration count
+for it in sorted(df_all["iterations"].unique()):
+    subset = df_all[df_all["iterations"] == it].sort_values("threads")
+    plt.plot(subset["threads"], subset["time"], marker="o", label=f"{it} iterations")
+
+plt.xlabel("Number of Threads")
+plt.ylabel("Execution Time (s)")
+plt.title("Heat Diffusion Simulation — Time vs Threads")
+plt.legend()
+plt.grid(True)
+plt.savefig("performance_time_vs_threads.png", dpi=150)
+plt.show()
