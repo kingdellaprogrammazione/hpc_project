@@ -305,6 +305,18 @@ float *create_zero_matrix(int total_elements)
     return matrix;
 }
 
+void create_zero_matrix_v2(float *matrix, int total_elements)
+{
+    if (matrix == NULL)
+    {
+        fprintf(stderr, "Matrix not allocated\n");
+    }
+    for (int i = 0; i < total_elements; i++)
+    {
+        matrix[i] = 0.0;
+    }
+}
+
 // matrix C needs to be already allocated
 int matrix_multi(float *matrix_A, float *matrix_B, float *matrix_C, int num_rows_A, int common, int num_cols_B) // obviously the num_rows and num_cols refer to the first matrix, the second one needs to satisfy the exchanged dimensions
 {
@@ -412,5 +424,20 @@ void from_blocks_to_matrix(float *matrix, float **target, int *matrix_block_stru
         }
 
         *target = new_matrix;
+    }
+    free(cumulated_block_structure);
+}
+
+void check_memory(int rank, const char *location, int canary, char *canary_str)
+{
+    if (canary != 999 || strcmp(canary_str, "CLEAN") != 0)
+    {
+        printf("!!! MEMORY CORRUPTED at %s on Rank %d !!!\n", location, rank);
+        fflush(stdout);
+    }
+    else
+    {
+        printf("Rank %d: Memory is still clean at %s\n", rank, location);
+        fflush(stdout);
     }
 }

@@ -24,6 +24,7 @@ void show_blocks(float **matrix, int row, int col, int sub_sides, int block_side
 float *create_null_matrix(int side);
 
 float *create_zero_matrix(int total_elements);
+void create_zero_matrix_v2(float *matrix, int total_elements);
 
 int *calculate_blocks_sizes(int processor_grid_side, int real_matrix_side);
 
@@ -43,5 +44,6 @@ void show_matrix(float *matrix, int rows, int cols);
 void from_blocks_to_matrix(float *matrix, float **target, int *matrix_block_structure, int grid_processor_side, int matrix_side);
 
 // void produce_csv(FILE **matrix_file_output, char *filename, float *matrix_final, int matrix_side);
+void check_memory(int rank, const char *location, int canary, char *canary_str);
 
 #endif
