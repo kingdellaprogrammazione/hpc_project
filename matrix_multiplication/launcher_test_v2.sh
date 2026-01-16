@@ -6,6 +6,8 @@
 #SBATCH --mail-type=ALL
 #SBATCH --partition=cpu_skylake
 
+MATRIX_SIDE="$1"
+
 # --- 1. Environment Setup ---
 echo "JOB STARTING"
 echo "Purging modules to ensure a clean environment..."
@@ -25,6 +27,6 @@ echo "SLURM_NTASKS allocated: $SLURM_NTASKS"
 echo "Running the MPI executable..."
 
 # Use the variables to ensure we run the correct file with the correct number of tasks
-make run
+make MATRIX_SIDE="$MATRIX_SIDE"
 
 echo "JOB FINISHED"

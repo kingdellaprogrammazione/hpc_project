@@ -6,6 +6,7 @@ LDFLAGS = -lm
 
 # If it is not already allocated
 SLURM_NTASKS ?= 7
+MATRIX_SIDE ?=13
 
 # Directories
 SRC_DIR = src/c
@@ -58,7 +59,7 @@ $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
 
 gen: 
-	python3 ./src/python/matrix_generator.py 
+	python3 ./src/python/matrix_generator.py $(MATRIX_SIDE)
 
 check: 
 	python3 ./src/python/matrix_checker.py
