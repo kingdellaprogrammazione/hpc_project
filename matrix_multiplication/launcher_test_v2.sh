@@ -1,6 +1,5 @@
 #!/bin/bash
 #SBATCH -J matrix_multi_mpi_5        # Use a new job name to be sure
-#SBATCH --ntasks=30               
 #SBATCH --time=0:10:00             # 1 minute should be plenty
 #SBATCH --mail-user=edoardo.frulla@studenti.polito.it
 #SBATCH --mail-type=ALL
