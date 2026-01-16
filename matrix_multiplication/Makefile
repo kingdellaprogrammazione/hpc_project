@@ -67,7 +67,7 @@ check:
 run_notime: mpi_mm
 	mpirun -np 7 ./build/mpi_mm.out
 
-run: mpi_mm
+run_with_time_module: mpi_mm
 	@mkdir -p $(DATA_DIR)/timings; \
 	timestamp=$$(date +%Y%m%d_%H%M%S); \
 	timefile="$(DATA_DIR)/timings/external_timings_$$timestamp.log"; \
@@ -75,6 +75,15 @@ run: mpi_mm
 	echo "/usr/bin/time -v mpirun -np $(SLURM_NTASKS) ./build/mpi_mm.out $$timestamp 2> $$timefile"; \
 	time -v mpirun -np $(SLURM_NTASKS) ./build/mpi_mm.out "$$timestamp" 2> "$$timefile"
 	
+run: mpi_mm
+	@mkdir -p $(DATA_DIR)/timings; \
+	timestamp=$$(date +%Y%m%d_%H%M%S); \
+	timefile="$(DATA_DIR)/timings/external_timings_$$timestamp.log"; \
+	echo "External timing info will be saved in $$timefile"; \
+	echo "mpirun -np $(SLURM_NTASKS) ./build/mpi_mm.out $$timestamp 2> $$timefile"; \
+	mpirun -np $(SLURM_NTASKS) ./build/mpi_mm.out "$$timestamp" 2> "$$timefile"
+	
+
 ## alternative when it didnt work --mca io romio341
 
 # Run tests
