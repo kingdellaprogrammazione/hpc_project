@@ -28,10 +28,10 @@ int main(int argc, char **argv)
     start_comm_profiling();
 
     double total_time = 0;
-    double total_time_start = MPI_Wtime();
 
     // Initialize MPI
     MPI_Init(&argc, &argv);
+    double total_time_start = MPI_Wtime();
 
     // Set and declare local processor's variables to 0
     MPIContext local_setup;
