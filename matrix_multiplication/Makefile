@@ -73,7 +73,7 @@ run: mpi_mm
 	timefile="$(DATA_DIR)/timings/external_timings_$$timestamp.log"; \
 	echo "External timing info will be saved in $$timefile"; \
 	echo "/usr/bin/time -v mpirun -np $(SLURM_NTASKS) ./build/mpi_mm.out $$timestamp 2> $$timefile"; \
-	/usr/bin/time -v mpirun -np $(SLURM_NTASKS) ./build/mpi_mm.out "$$timestamp" 2> "$$timefile"
+	time -v mpirun -np $(SLURM_NTASKS) ./build/mpi_mm.out "$$timestamp" 2> "$$timefile"
 	
 ## alternative when it didnt work --mca io romio341
 
