@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <time.h>
 
 #ifndef IO_H
 #define IO_H
@@ -15,4 +16,8 @@ int obtain_full_matrices(const char *filename_matrix_A, const char *filename_mat
 //  Opens the logfile with live logging (if live = 1)
 int open_logfiles(MPIContext *ctx, int live);
 
+// Creates directories if missing
+void mkdir_if_missing(const char *path);
+
+int save_info_timings(MPIContext *ctx, char *timestamp, double total_time, double distribution_computation_gathering_time);
 #endif
