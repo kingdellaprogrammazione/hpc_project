@@ -4,6 +4,8 @@
 #SBATCH --mail-user=edoardo.frulla@studenti.polito.it
 #SBATCH --mail-type=ALL
 #SBATCH --partition=cpu_skylake
+#SBATCH --nodelist=compute-1-3,compute-1-4   # use these two nodes for every benchmark
+
 
 MATRIX_SIDE="$1"
 
