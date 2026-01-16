@@ -4,18 +4,23 @@ CC = gcc
 CFLAGS = -Wall -Wextra
 LDFLAGS = -lm
 
+# If it is not already allocated
+SLURM_NTASKS ?= 7
+
 # Directories
 SRC_DIR = src/c
 TEST_DIR = test
 EXTERNAL_DIR = external/unity
 BUILD_DIR = build
-LOG_DIR = data/logs
+DATA_DIR = data
+LOG_DIR = $(DATA_DIR)/logs
 
 # Sources used in app and tests
-SHARED_SRCS = $(SRC_DIR)/mpi_functions.c $(SRC_DIR)/structs.c $(SRC_DIR)/io.c
+SHARED_SRCS = $(SRC_DIR)/mpi_functions.c $(SRC_DIR)/structs.c $(SRC_DIR)/io.c $(SRC_DIR)/mpi_profiler.c
 
 # App-specific sources
-APP_SRCS = $(SRC_DIR)/mpi_final.c $(SRC_DIR)/io.c $(SRC_DIR)/mpi_ops.c  $(SHARED_SRCS)
+APP_SRCS = $(SRC_DIR)/mpi_final.c $(SRC_DIR)/mpi_ops.c $(SHARED_SRCS)
+# APP_SRCS = $(SRC_DIR)/mpi_final.c $(SRC_DIR)/io.c $(SRC_DIR)/mpi_ops.c $(SHARED_SRCS)
 
 # Test sources
 TEST_SRCS = $(TEST_DIR)/testfile.c
@@ -58,8 +63,18 @@ gen:
 check: 
 	python3 ./src/python/matrix_checker.py
 
-run: mpi_mm
+run_notime: mpi_mm
 	mpirun -np 7 ./build/mpi_mm.out
+
+run: mpi_mm
+	@mkdir -p $(DATA_DIR)/timings; \
+	timestamp=$$(date +%Y%m%d_%H%M%S); \
+	timefile="$(DATA_DIR)/timings/external_timings_$$timestamp.log"; \
+	echo "External timing info will be saved in $$timefile"; \
+	echo "/usr/bin/time -v mpirun -np $(SLURM_NTASKS) ./build/mpi_mm.out $$timestamp 2> $$timefile"; \
+	/usr/bin/time -v mpirun -np $(SLURM_NTASKS) ./build/mpi_mm.out "$$timestamp" 2> "$$timefile"
+	
+## alternative when it didnt work --mca io romio341
 
 # Run tests
 test: test.out
