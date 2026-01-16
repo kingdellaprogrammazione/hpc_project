@@ -7,35 +7,95 @@
 #include <stdlib.h>
 #include <assert.h>
 
+void organize_processors_v2(MPIContext *ctx)
+{
+    // 1. Identify roles clearly
+    int grid_capacity = ctx->processor_grid_side * ctx->processor_grid_side;
+
+    // Workers are Ranks 1 to N^2
+    int is_worker = (ctx->world_rank > 0 && ctx->world_rank <= grid_capacity);
+    // Manager is Rank 0
+    int is_manager = (ctx->world_rank == 0);
+
+    // 2. CREATE FULL GROUP COMMUNICATOR FIRST
+    // This ensures Rank 0 and Workers share the same first "Context ID"
+    int full_group_color = (is_manager || is_worker) ? 1 : MPI_UNDEFINED;
+    MPI_Comm_split(MPI_COMM_WORLD, full_group_color, ctx->world_rank, &(ctx->full_group_comm));
+
+    // 3. CREATE WORKER COMMUNICATOR
+    // We split from WORLD again. Rank 0 will get MPI_COMM_NULL here.
+    int worker_color = is_worker ? 1 : MPI_UNDEFINED;
+    MPI_Comm_split(MPI_COMM_WORLD, worker_color, ctx->world_rank, &(ctx->worker_comm));
+
+    // 4. CREATE CARTESIAN GRID (Workers only)
+    if (ctx->worker_comm != MPI_COMM_NULL)
+    {
+        int dims[2] = {ctx->processor_grid_side, ctx->processor_grid_side};
+        int periods[2] = {0, 0};
+
+        // reorder = 0 is SAFER for debugging to ensure World Rank 3
+        // doesn't suddenly become Cartesian Rank 1.
+        int reorder = 0;
+
+        MPI_Cart_create(ctx->worker_comm, 2, dims, periods, reorder, &(ctx->cart_comm));
+
+        if (ctx->cart_comm != MPI_COMM_NULL)
+        {
+            MPI_Comm_rank(ctx->cart_comm, &(ctx->cart_rank));
+            MPI_Comm_size(ctx->cart_comm, &(ctx->cart_size));
+            MPI_Cart_coords(ctx->cart_comm, ctx->cart_rank, 2, ctx->cartesian_coords);
+        }
+    }
+
+    // 5. UPDATE METADATA FOR THE FULL GROUP
+    if (ctx->full_group_comm != MPI_COMM_NULL)
+    {
+        MPI_Comm_size(ctx->full_group_comm, &(ctx->full_size));
+        MPI_Comm_rank(ctx->full_group_comm, &(ctx->full_rank));
+    }
+
+    // FINAL SYNC: Ensure everyone has finished reorganization before moving to IO/Math
+    MPI_Barrier(MPI_COMM_WORLD);
+}
+
 void organize_processors(MPIContext *ctx)
 {
+    // Need to put a global variable here since it is needed later
     int color = 1;
 
+    // Consider cases in which the grid can be built leaving out rank-0 processor
     if (ctx->processor_grid_side * ctx->processor_grid_side != ctx->world_size)
     {
+        // Color the processes needed to create the grid
         if ((ctx->world_rank > 0) && (ctx->world_rank < (ctx->processor_grid_side * ctx->processor_grid_side + 1)))
         {
             color = 1;
         }
+        // All the others have undefined color
         else
         {
             color = MPI_UNDEFINED;
         }
     }
 
-    MPI_Comm_split(MPI_COMM_WORLD, color, ctx->world_rank, &(ctx->worker_comm)); // edge case of square world size handled
+    // Split the communicator with the selected processes. Keep the same rank ordering (lower is lower)
+    // Notice that if all the processes are needed into the grid, the new communicator is equal to the old one
+    MPI_Comm_split(MPI_COMM_WORLD, color, ctx->world_rank, &(ctx->worker_comm));
 
-    if (ctx->worker_comm != MPI_COMM_NULL) // consider only workers
+    // Consider only workers
+    if (ctx->worker_comm != MPI_COMM_NULL)
     {
-        // Create the Cartesian grid from the new, smaller communicator
+        // Create the cartesian grid specs from the new, smaller communicator
         const int ndims = 2;
         int dims[2] = {ctx->processor_grid_side, ctx->processor_grid_side};
         int periods[2] = {0, 0};
+        // Reorder ranks for efficiency TODO could be a interesting parameter to change
         int reorder = 1;
 
+        // Create and save the cartesian topology
         MPI_Cart_create(ctx->worker_comm, ndims, dims, periods, reorder, &(ctx->cart_comm));
 
-        // --- Now, use the grid communicator for your work ---
+        // Save relevant information
         MPI_Comm_rank(ctx->cart_comm, &(ctx->cart_rank));
         MPI_Cart_coords(ctx->cart_comm, ctx->cart_rank, ndims, ctx->cartesian_coords);
 
@@ -43,13 +103,17 @@ void organize_processors(MPIContext *ctx)
         //         ctx->full_rank, ctx->cart_rank, ctx->cartesian_coords[0], ctx->cartesian_coords[1]);
     }
 
+    // Now also the 0-rank process is considered
     if (ctx->world_rank == 0)
     {
         color = 1;
     }
 
-    MPI_Comm_split(MPI_COMM_WORLD, color, ctx->world_rank, &(ctx->full_group_comm)); // this split includes all processes, also the manager, should work also in the edge case
+    // This split includes the square grid processes and the manager, should work also in the edge case
+    // Needed to let manager speak with the workers
+    MPI_Comm_split(MPI_COMM_WORLD, color, ctx->world_rank, &(ctx->full_group_comm));
 
+    // Save relevant information
     if (ctx->full_group_comm != MPI_COMM_NULL)
     {
         MPI_Comm_size(ctx->full_group_comm, &(ctx->full_size));
@@ -58,16 +122,73 @@ void organize_processors(MPIContext *ctx)
     if (ctx->cart_comm != MPI_COMM_NULL)
     {
         MPI_Comm_size(ctx->cart_comm, &(ctx->cart_size));
-        MPI_Comm_rank(ctx->cart_comm, &(ctx->cart_rank));
+        MPI_Comm_rank(ctx->cart_comm, &(ctx->cart_rank)); // TODO isn't this present also before?
     }
 
-    MPI_Barrier(MPI_COMM_WORLD);
+    // MPI_Barrier(MPI_COMM_WORLD);  // TODO: i removed this one, unsafe
+}
+
+void obtain_rank_conversion_old(MPIContext *ctx, int **full_comm_ranks, int **rank_lookup_table_cartesian)
+{
+    // 1. Every rank in full_group needs to know how many workers there are
+    int num_workers = ctx->processor_grid_side * ctx->processor_grid_side;
+
+    // 2. Everyone MUST allocate memory
+    *full_comm_ranks = (int *)malloc(num_workers * sizeof(int));
+    *rank_lookup_table_cartesian = (int *)malloc(num_workers * sizeof(int));
+
+    // 3. Find who is the 'Root' of the cartesian grid (Cart Rank 0)
+    // The worker with cart_rank == 0 contributes its full_rank, others -1
+    int local_root_val = (ctx->worker_comm != MPI_COMM_NULL && ctx->cart_rank == 0) ? ctx->full_rank : -1;
+    int cart_root_in_full_group;
+
+    MPI_Allreduce(&local_root_val, &cart_root_in_full_group, 1, MPI_INT, MPI_MAX, ctx->full_group_comm);
+
+    // 4. Only the Worker Root prepares the translation data
+    if (ctx->worker_comm != MPI_COMM_NULL && ctx->cart_rank == 0)
+    {
+        MPI_Group cart_group, full_group;
+        MPI_Comm_group(ctx->cart_comm, &cart_group);
+        MPI_Comm_group(ctx->full_group_comm, &full_group);
+
+        int *ranks_to_translate = malloc(num_workers * sizeof(int));
+        for (int i = 0; i < num_workers; i++)
+            ranks_to_translate[i] = i;
+
+        // Translate ranks from Cartesian to Full Group
+        MPI_Group_translate_ranks(cart_group, num_workers, ranks_to_translate, full_group, *full_comm_ranks);
+
+        // Fill the lookup table
+        for (int i = 0; i < ctx->processor_grid_side; i++)
+        {
+            for (int j = 0; j < ctx->processor_grid_side; j++)
+            {
+                int coords[2] = {i, j};
+                int temp_rank;
+                MPI_Cart_rank(ctx->cart_comm, coords, &temp_rank);
+                (*rank_lookup_table_cartesian)[i * ctx->processor_grid_side + j] = (*full_comm_ranks)[temp_rank];
+            }
+        }
+        free(ranks_to_translate);
+        MPI_Group_free(&cart_group);
+        MPI_Group_free(&full_group);
+    }
+
+    // 5. THE FIX: Everyone calls the Bcast together!
+    // Broadcast the full_comm_ranks mapping
+    MPI_Bcast(*full_comm_ranks, num_workers, MPI_INT, cart_root_in_full_group, ctx->full_group_comm);
+
+    // Broadcast the lookup table
+    MPI_Bcast(*rank_lookup_table_cartesian, num_workers, MPI_INT, cart_root_in_full_group, ctx->full_group_comm);
+
+    // No Send/Recv needed! Everyone has the data now.
+    MPI_Barrier(ctx->full_group_comm);
 }
 
 void obtain_rank_conversion(MPIContext *ctx, int **full_comm_ranks, int **rank_lookup_table_cartesian)
 {
 
-    *full_comm_ranks = (int *)malloc(ctx->cart_size * sizeof(int));
+    int num_workers = ctx->processor_grid_side * ctx->processor_grid_side;
 
     int cart_rank_in_full_world = -1;
     // We use an Allreduce to find the rank of the process where cart_rank is 0.
@@ -79,6 +200,7 @@ void obtain_rank_conversion(MPIContext *ctx, int **full_comm_ranks, int **rank_l
 
     if (ctx->cart_rank == 0) // this needs to be executed from a process that belongs to both groups
     {
+        *full_comm_ranks = (int *)malloc(num_workers * sizeof(int));
 
         // STEP 2: Translate this rank into even_comm
         MPI_Group cart_group, full_group;
@@ -100,8 +222,6 @@ void obtain_rank_conversion(MPIContext *ctx, int **full_comm_ranks, int **rank_l
         MPI_Group_free(&cart_group);
         MPI_Group_free(&full_group);
 
-        MPI_Bcast(*full_comm_ranks, ctx->cart_size, MPI_INT, cart_rank_in_full_world, ctx->full_group_comm);
-
         *rank_lookup_table_cartesian = malloc(ctx->processor_grid_side * ctx->processor_grid_side * sizeof(int));
         for (int i = 0; i < ctx->processor_grid_side; i++)
         {
@@ -115,8 +235,13 @@ void obtain_rank_conversion(MPIContext *ctx, int **full_comm_ranks, int **rank_l
                 (*rank_lookup_table_cartesian)[i * ctx->processor_grid_side + j] = (*full_comm_ranks)[temp_cart_rank];
             }
         }
+
+        free(*full_comm_ranks);
+
         MPI_Send(*rank_lookup_table_cartesian, ctx->processor_grid_side * ctx->processor_grid_side, MPI_INT, 0, 99, ctx->full_group_comm);
+        free(*rank_lookup_table_cartesian);
     }
+
     if (ctx->full_rank == 0)
     {
         *rank_lookup_table_cartesian = malloc(ctx->processor_grid_side * ctx->processor_grid_side * sizeof(int));
@@ -126,6 +251,8 @@ void obtain_rank_conversion(MPIContext *ctx, int **full_comm_ranks, int **rank_l
 
         fprintf(ctx->log_file, "Manager has received the rank lookup table.\n");
     }
+
+    // MPI_Bcast(*full_comm_ranks, num_workers, MPI_INT, cart_rank_in_full_world, ctx->full_group_comm);
 }
 
 void printonrank(char *string, int rank, MPI_Comm comm)
@@ -163,8 +290,12 @@ void cartesian_explorer(MPIContext *ctx)
     // Discover horizontal neighbors
     MPI_Cart_shift(ctx->cart_comm, 1, 1, &(ctx->receivefrom_horizontal), &(ctx->sendto_horizontal));
 
-    ctx->multi_result = create_zero_matrix(block_total_elements);
-    ctx->local_block = create_zero_matrix(block_total_elements);
+    // ctx->multi_result = create_zero_matrix(block_total_elements);
+    // ctx->local_block = create_zero_matrix(block_total_elements);
+
+    create_zero_matrix_v2(ctx->multi_result, block_total_elements);
+    create_zero_matrix_v2(ctx->local_block, block_total_elements);
+
     fprintf(ctx->log_file, "Allocated memory successfully for single grid processor\n");
     MPI_Barrier(ctx->cart_comm);
 }
@@ -455,6 +586,10 @@ void run_local_calculation(MPIContext *ctx, int clock)
     temp = (float *)malloc(ctx->local_block_cols * ctx->local_block_rows * sizeof(float));
 
     matrix_add(ctx->multi_result, ctx->local_block, temp, ctx->local_block_rows, ctx->local_block_cols); // attention here TODO check
+
+    // TODO check this line
+    free(ctx->local_block);
+
     ctx->local_block = temp;
     if (ctx->cart_rank == 0)
     {
@@ -489,8 +624,9 @@ void prepare_next_clock(MPIContext *ctx)
 
     if (ctx->multi_result != NULL)
     {
-        free(ctx->multi_result);
-        ctx->multi_result = create_zero_matrix(ctx->local_block_cols * ctx->local_block_rows);
+        // free(ctx->multi_result);
+        // ctx->multi_result = create_zero_matrix(ctx->local_block_cols * ctx->local_block_rows);
+        create_zero_matrix_v2(ctx->multi_result, ctx->local_block_cols * ctx->local_block_rows);
     }
 }
 
@@ -688,7 +824,7 @@ void collect_and_merge(MPIContext *ctx, float *matrix_write, float *final_matrix
 
     if (ctx->full_rank == 0)
     {
-        final_matrix = (float *)malloc(ctx->matrix_side * ctx->matrix_side * sizeof(float)); // result of the multiplications
+        // final_matrix = (float *)malloc(ctx->matrix_side * ctx->matrix_side * sizeof(float)); // result of the multiplications
         // function REORDER THE MATRIX
         from_blocks_to_matrix(matrix_write, &final_matrix, ctx->matrix_block_structure, ctx->processor_grid_side, ctx->matrix_side);
 
@@ -702,6 +838,17 @@ void collect_and_merge(MPIContext *ctx, float *matrix_write, float *final_matrix
             // An error occurred
             fprintf(stderr, "some_function failed with error code: %d\n", result);
         }
+        fclose(file_to_write);
+    }
+
+    if (ctx->full_rank == 0)
+    {
+        // freeing
+        free(full_dims);
+        free(sending_dimension);
+        free(displacements);
+        free(matrix_write);
+        free(final_matrix);
     }
 }
 
@@ -748,9 +895,45 @@ void free_localpointers(MPIContext *ctx, Block **block_matrix_A, Block **block_m
     }
 }
 
+void free_context(MPIContext *ctx)
+{
+    // Block data
+    if (ctx->coming_block_vertical != NULL)
+    {
+        free(ctx->coming_block_vertical);
+    }
+    // if (ctx->going_block_horizontal != NULL)
+    // {
+    //     free(ctx->going_block_horizontal);
+    // }
+    // if (ctx->going_block_vertical != NULL)
+    // {
+    //     free(ctx->going_block_vertical);
+    // }
+    if (ctx->coming_block_horizontal != NULL)
+    {
+        free(ctx->coming_block_horizontal);
+    }
+    if (ctx->multi_result != NULL)
+    {
+        free(ctx->multi_result);
+    }
+    if (ctx->local_block != NULL)
+    {
+        free(ctx->local_block);
+    }
+
+    // Other
+    // if (ctx->matrix_block_structure != NULL)
+    // {
+    //     free(ctx->matrix_block_structure);
+    // }
+}
+
 void free_all(MPIContext *ctx, Block **block_matrix_A, Block **block_matrix_B)
 {
     free_communicators(ctx);
     free_localpointers(ctx, block_matrix_A, block_matrix_B);
+    free_context(ctx);
     close_logfiles(ctx);
 }

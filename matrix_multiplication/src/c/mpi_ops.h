@@ -31,6 +31,7 @@ void collect_and_merge(MPIContext *ctx, float *matrix_write, float *final_matrix
 void free_communicators(MPIContext *ctx);
 void close_logfiles(MPIContext *ctx);
 void free_localpointers(MPIContext *ctx, Block **block_matrix_A, Block **block_matrix_B);
+void free_context(MPIContext *ctx);
 
 void free_all(MPIContext *ctx, Block **block_matrix_A, Block **block_matrix_B);
 
