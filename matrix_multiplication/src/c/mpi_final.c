@@ -27,7 +27,7 @@ int main(int argc, char **argv)
     // Set up profiling for info about communication timings
     start_comm_profiling();
 
-    double total_time[7] = 0;
+    double total_time[7] = {0};
 
     // Initialize MPI
     MPI_Init(&argc, &argv);
@@ -232,7 +232,7 @@ int main(int argc, char **argv)
 
     // comm_profile declared as extern
 
-    int err = save_info_timings_array(&local_setup, timestamp, &total_time, 7);
+    int err = save_info_timings_array(&local_setup, timestamp, total_time, 7);
 
     MPI_Barrier(MPI_COMM_WORLD);
 
