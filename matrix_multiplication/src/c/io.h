@@ -20,4 +20,6 @@ int open_logfiles(MPIContext *ctx, int live);
 void mkdir_if_missing(const char *path);
 
 int save_info_timings(MPIContext *ctx, char *timestamp, double total_time, double distribution_computation_gathering_time);
+int save_info_timings_array(MPIContext *ctx, char *timestamp, double *total_time, int size);
+
 #endif

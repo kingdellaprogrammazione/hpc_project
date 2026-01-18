@@ -337,3 +337,85 @@ int save_info_timings(MPIContext *ctx, char *timestamp, double total_time, doubl
 
     MPI_File_close(&profiling_timings_file);
 }
+
+// this functions need to be called by all the processes
+int save_info_timings_array(MPIContext *ctx, char *timestamp, double *total_time, int size)
+{
+    char profiler_timings_filename[128];
+
+    // Initialize the file contaning the execution timings
+    FILE *total_timings_file = NULL;
+    MPI_File profiling_timings_file;
+
+    snprintf(profiler_timings_filename, sizeof(profiler_timings_filename),
+             "./data/timings/profiling_timings_%s.csv", timestamp);
+
+    int err = 0;
+    if ((err = MPI_File_open(MPI_COMM_WORLD, profiler_timings_filename, MPI_MODE_CREATE | MPI_MODE_WRONLY, MPI_INFO_NULL, &profiling_timings_file)) != 0)
+    {
+        printf("ERROR %d\n", err);
+        MPI_Abort(ctx->full_group_comm, 4512);
+        return STATUS_READING_ERROR;
+    }
+
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    if (ctx->full_rank == 0)
+    {
+        printf("Opened profiling timings file at %s\n", profiler_timings_filename);
+
+        // Build total timings filename
+        char total_timings_filename[128];
+
+        snprintf(total_timings_filename, sizeof(total_timings_filename),
+                 "./data/timings/total_timings_%s.csv", timestamp);
+
+        if ((total_timings_file = fopen(total_timings_filename, "w")) == NULL) // TODO GIVES ERROR HERE IF FILE NOT PRESENT (chat says no) (to log a lot of files add like a hash of the time of starts here)
+        {
+            MPI_Abort(ctx->full_group_comm, 450);
+            return STATUS_READING_ERROR;
+        }
+        printf("Opened total timings file at %s\n", total_timings_filename);
+
+        const char *header_total = "TotalProcessesInvolved,MatrixDimensionSide,1,2,3,4,5,6,7\n";
+
+        fprintf(total_timings_file, "%s", header_total);
+
+        fprintf(total_timings_file, "%d,%d", ctx->full_size, ctx->matrix_side);
+
+        for (int i = 0; i < size; i++)
+        {
+            fprintf(total_timings_file, ",%.6f", total_time[i]);
+        }
+
+        fprintf(total_timings_file, "\n");
+
+        fclose(total_timings_file);
+
+        // Rank 0 writes the csv header
+        const char *header_profiler = "TotalProcessesInvolved,MatrixDimensionSide,Rank,MPI_SendCount, MPI_SendTTime, MPI_RecvCount, MPI_RecvTTime,"
+                                      "MPI_BcastCount, MPI_BcastTTime, MPI_SendrecvCount, MPI_SendrecvTime, MPI_ReduceCount, MPI_ReduceTTime,"
+                                      "MPI_AllreduceCount, MPI_AllreduceTTime, MPI_ScatterCount, MPI_ScatterTTime, MPI_GatherCount, MPI_GatherTTime,"
+                                      "MPI_GathervCount, MPI_GathervTTime\n";
+
+        MPI_File_write_shared(profiling_timings_file, header_profiler, strlen(header_profiler), MPI_CHAR, MPI_STATUS_IGNORE);
+        // so they all can see pointer advancing
+    }
+
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    char line[256];
+    snprintf(line, sizeof(line), "%d,%d,%d,%.6f,%d,%.6f,%d,%.6f,%d,%.6f,%d,%.6f,%d,%.6f,%d,%.6f,%d,%.6f,%d,%.6f,%d\n",
+             ctx->full_size, ctx->matrix_side, ctx->full_rank, comm_profile.send_time, comm_profile.send_count, comm_profile.recv_time, comm_profile.recv_count,
+             comm_profile.bcast_time, comm_profile.bcast_count,
+             comm_profile.sendrecv_time, comm_profile.sendrecv_count,
+             comm_profile.reduce_time, comm_profile.reduce_count,
+             comm_profile.allreduce_time, comm_profile.allreduce_count,
+             comm_profile.scatter_time, comm_profile.scatter_count,
+             comm_profile.gather_time, comm_profile.gather_count,
+             comm_profile.gatherv_time, comm_profile.gatherv_count);
+
+    MPI_File_write_ordered(profiling_timings_file, line, strlen(line), MPI_CHAR, MPI_STATUS_IGNORE);
+
+    MPI_File_close(&profiling_timings_file);
+}

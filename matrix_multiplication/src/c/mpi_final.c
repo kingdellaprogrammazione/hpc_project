@@ -27,7 +27,7 @@ int main(int argc, char **argv)
     // Set up profiling for info about communication timings
     start_comm_profiling();
 
-    double total_time = 0;
+    double total_time[7] = 0;
 
     // Initialize MPI
     MPI_Init(&argc, &argv);
@@ -66,6 +66,9 @@ int main(int argc, char **argv)
     // Sync every processor
     MPI_Barrier(MPI_COMM_WORLD);
     printonrank("Processors organized.\n", 0, MPI_COMM_WORLD);
+
+    double total_time_2 = MPI_Wtime();
+    total_time[0] = total_time_2 - total_time_start;
 
     // If timestamp was passed, everybody has it
     if (argc == 2)
@@ -109,6 +112,9 @@ int main(int argc, char **argv)
 
     MPI_Barrier(MPI_COMM_WORLD);
 
+    double total_time_3 = MPI_Wtime();
+    total_time[1] = total_time_3 - total_time_2;
+
     // Open logfiles
     if (local_setup.full_group_comm != MPI_COMM_NULL)
     {
@@ -131,6 +137,8 @@ int main(int argc, char **argv)
     float *matrix_C_read = NULL;
 
     MPI_Barrier(MPI_COMM_WORLD);
+    double total_time_4 = MPI_Wtime();
+    total_time[2] = total_time_4 - total_time_3;
 
     // let's make only the actual rank 0 process handle the opening, dimension detection and reading of the matrices
     if (local_setup.full_rank == 0)
@@ -158,12 +166,17 @@ int main(int argc, char **argv)
     // }
 
     MPI_Barrier(MPI_COMM_WORLD);
+    double total_time_5 = MPI_Wtime();
+    total_time[3] = total_time_5 - total_time_4;
+
     if (local_setup.full_group_comm != MPI_COMM_NULL)
     {
         scatter_block_dims(&local_setup, block_matrix_A);
         MPI_Barrier(local_setup.full_group_comm);
         printonrank("Dimensions of the static grid block have been scattered.\n", 0, local_setup.full_group_comm);
     }
+    double total_time_6 = MPI_Wtime();
+    total_time[4] = total_time_6 - total_time_5;
 
     if (local_setup.cart_comm != MPI_COMM_NULL) // here we initialize and allocate memory only on the cartesian grid
     {
@@ -177,6 +190,8 @@ int main(int argc, char **argv)
 
     float *final_matrix = NULL;
 
+    double total_time_7 = MPI_Wtime();
+    total_time[5] = total_time_7 - total_time_6;
     // double start_time = 0;
     // double end_time = 0;
 
@@ -210,14 +225,14 @@ int main(int argc, char **argv)
     stop_comm_profiling();
     //  print_comm_profile(local_setup.world_rank);
 
-    double total_time_end = MPI_Wtime();
-    total_time = total_time_end - total_time_start;
+    double total_time_8 = MPI_Wtime();
+    total_time[6] = total_time_8 - total_time_7;
 
     MPI_Barrier(MPI_COMM_WORLD);
 
     // comm_profile declared as extern
 
-    int err = save_info_timings(&local_setup, timestamp, total_time, distribution_computation_gathering_time);
+    int err = save_info_timings_array(&local_setup, timestamp, &total_time, distribution_computation_gathering_time);
 
     MPI_Barrier(MPI_COMM_WORLD);
 
